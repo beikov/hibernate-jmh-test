@@ -1,17 +1,35 @@
 package org.hibernate.bugs;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
+import javax.persistence.Persistence;
+import javax.persistence.Table;
+
 import org.openjdk.jmh.Main;
-import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
-
-import javax.persistence.*;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -19,21 +37,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * This template demonstrates how to develop a test case for Hibernate ORM, using the Java Persistence API.
  */
 @State(Scope.Thread)
-public class JPABenchmark {
+public abstract class JPABenchmark1Base {
 
-	private EntityManagerFactory entityManagerFactory;
+	protected EntityManagerFactory entityManagerFactory;
 
 	@Setup
 	public void setup() {
-		entityManagerFactory = Persistence.createEntityManagerFactory("templatePU");
+		entityManagerFactory = Persistence.createEntityManagerFactory( "bench1" );
 
 		final EntityManager em = entityManagerFactory.createEntityManager();
 		em.getTransaction().begin();
-		em.createQuery("delete Book").executeUpdate();
-		em.createQuery("delete Author").executeUpdate();
-		em.createQuery("delete AuthorDetails").executeUpdate();
-		for (int i = 0; i < 1000; i++) {
-			populateData(em);
+		em.createQuery( "delete Book" ).executeUpdate();
+		em.createQuery( "delete Author" ).executeUpdate();
+		em.createQuery( "delete AuthorDetails" ).executeUpdate();
+		for ( int i = 0; i < 1000; i++ ) {
+			populateData( em );
 		}
 		em.getTransaction().commit();
 		em.close();
@@ -44,33 +62,7 @@ public class JPABenchmark {
 		entityManagerFactory.close();
 	}
 
-	@Benchmark
-	public void perf5() {
-		final EntityManager em = entityManagerFactory.createEntityManager();
-		em.getTransaction().begin();
-		final List<Author> authors = em.createQuery("from Author", Author.class).getResultList();
-		authors.forEach(author -> assertFalse(author.books.isEmpty()));
-		em.getTransaction().commit();
-		em.close();
-	}
-
-	public static void main(String[] args) throws RunnerException, IOException {
-		if (args.length == 0) {
-			final Options opt = new OptionsBuilder()
-					.include(".*" + JPABenchmark.class.getSimpleName() + ".*")
-					.warmupIterations(3)
-					.warmupTime(TimeValue.seconds(3))
-					.measurementIterations(3)
-					.measurementTime(TimeValue.seconds(5))
-					.threads(1)
-					.addProfiler("gc")
-					.forks(2)
-					.build();
-			new Runner(opt).run();
-		} else {
-			Main.main(args);
-		}
-	}
+	public abstract void perf5();
 
 	public void populateData(EntityManager entityManager) {
 		final Book book = new Book();
@@ -84,11 +76,11 @@ public class JPABenchmark {
 		details.author = author;
 		author.details = details;
 
-		author.books.add(book);
+		author.books.add( book );
 		book.author = author;
 
-		entityManager.persist(author);
-		entityManager.persist(book);
+		entityManager.persist( author );
+		entityManager.persist( book );
 	}
 
 	@Entity(name = "Author")
